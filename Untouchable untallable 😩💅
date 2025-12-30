@@ -1,0 +1,595 @@
+wait("0.7")
+wait ("0.7")
+-- =========================
+-- SERVICES
+-- =========================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- =========================
+-- SETTINGS
+-- =========================
+local GlideRadius = 12
+local GlideSpeed = 200
+local UPWARD_LIFT = 5
+local GlideTrail = true 
+local TrailLength = 1.5
+local TrailWidthFront = 0.05
+local TrailWidthBack = 0.3
+
+local Enabled = false
+local AvoidAll = false
+local Minimized = false
+
+local TrailEnabled = true
+local TrailEffectRadius = 12
+local TrailLifetimeValue = 1.5
+
+-- =========================
+-- GUI SETUP
+-- =========================
+pcall(function()
+	LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("vesczxi tool"):Destroy()
+end)
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "vesczxi tool"
+Gui.ResetOnSpawn = false
+Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- MAIN FRAME
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.fromOffset(280, 460)
+Frame.AnchorPoint = Vector2.new(1, 1)
+Frame.Position = UDim2.fromScale(0.98, 0.95) 
+Frame.BackgroundColor3 = Color3.fromRGB(32,32,32)
+Frame.BackgroundTransparency = 0.2
+Frame.BorderSizePixel = 0
+Frame.ZIndex = 5
+Frame.Visible = true 
+Frame.Parent = Gui
+Instance.new("UICorner", Frame)
+
+-- SMALL TOP-LEFT TOGGLE BUTTON
+local SideToggleButton = Instance.new("TextButton")
+SideToggleButton.Size = UDim2.fromOffset(45, 30) 
+SideToggleButton.Position = UDim2.fromOffset(5, 5) 
+SideToggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SideToggleButton.Text = "VESC"
+SideToggleButton.Font = Enum.Font.SourceSansBold
+SideToggleButton.TextSize = 14
+SideToggleButton.TextColor3 = Color3.new(1, 1, 1)
+SideToggleButton.ZIndex = 20
+SideToggleButton.Parent = Gui
+Instance.new("UICorner", SideToggleButton, UDim.new(0, 5))
+
+SideToggleButton.MouseButton1Click:Connect(function()
+	Frame.Visible = not Frame.Visible
+end)
+
+-- TITLE (Split into two parts for different color logic)
+local TitleContainer = Instance.new("Frame")
+TitleContainer.Size = UDim2.new(1,-40,0,30)
+TitleContainer.Position = UDim2.fromOffset(10,0)
+TitleContainer.BackgroundTransparency = 1
+TitleContainer.ZIndex = 10
+TitleContainer.Parent = Frame
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(0, 0, 1, 0)
+TitleText.AutomaticSize = Enum.AutomaticSize.X
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "vesczxi tool - "
+TitleText.Font = Enum.Font.SourceSansBold
+TitleText.TextSize = 18
+TitleText.TextColor3 = Color3.new(1,1,1)
+TitleText.ZIndex = 10
+TitleText.Parent = TitleContainer
+
+local FriendshipLabel = Instance.new("TextLabel")
+FriendshipLabel.Size = UDim2.new(0, 0, 1, 0)
+FriendshipLabel.Position = UDim2.new(0, 105, 0, 0) -- Positioned right after tool -
+FriendshipLabel.AutomaticSize = Enum.AutomaticSize.X
+FriendshipLabel.BackgroundTransparency = 1
+FriendshipLabel.Text = "Friendshipcreate"
+FriendshipLabel.Font = Enum.Font.SourceSansBold
+FriendshipLabel.TextSize = 18
+FriendshipLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+FriendshipLabel.ZIndex = 10
+FriendshipLabel.Parent = TitleContainer
+
+-- COLOR LOOPS
+spawn(function()
+	while true do
+		-- Original Rainbow for main title
+		TitleText.TextColor3 = Color3.fromHSV((tick()*0.7)%1,1,1)
+		
+		-- Slow Red to Orange transition for "Friendshipcreate"
+		local lerpVal = (math.sin(tick() * 1.5) + 1) / 2 -- Cycles slowly between 0 and 1
+		FriendshipLabel.TextColor3 = Color3.fromRGB(255, 0, 0):Lerp(Color3.fromRGB(255, 120, 0), lerpVal)
+		
+		task.wait(0.03)
+	end
+end)
+
+-- MINIMIZE BUTTON
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.fromOffset(30,22)
+MinBtn.Position = UDim2.fromOffset(240,4)
+MinBtn.Text = "−"
+MinBtn.TextSize = 22
+MinBtn.TextColor3 = Color3.fromRGB(255,255,255)
+MinBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+MinBtn.ZIndex = 10
+MinBtn.Parent = Frame
+Instance.new("UICorner", MinBtn)
+
+-- CONTENT FRAME
+local Content = Instance.new("Frame")
+Content.Position = UDim2.fromOffset(0,30)
+Content.Size = UDim2.new(1,0,1,-30)
+Content.BackgroundTransparency = 1
+Content.ClipsDescendants = false
+Content.ZIndex = 9
+Content.Parent = Frame
+
+-- CREATE BUTTON FUNCTION
+local function createButton(text, y)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1,-20,0,35)
+	b.Position = UDim2.fromOffset(10,y)
+	b.Text = text
+	b.TextColor3 = Color3.new(1,1,1)
+	b.ZIndex = 12
+	b.Parent = Content
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0,14)
+	corner.Parent = b
+	return b
+end
+
+local Toggle = createButton("Glide: OFF", 10)
+Toggle.BackgroundColor3 = Color3.fromRGB(140,50,50)
+
+local TrailToggle = createButton("Trail: ON", 50)
+TrailToggle.BackgroundColor3 = Color3.fromRGB(60,140,60)
+TrailToggle.MouseButton1Click:Connect(function()
+	TrailEnabled = not TrailEnabled
+	if TrailEnabled then
+		TrailToggle.Text = "Trail: ON"
+		TrailToggle.BackgroundColor3 = Color3.fromRGB(60,140,60)
+	else
+		TrailToggle.Text = "Trail: OFF"
+		TrailToggle.BackgroundColor3 = Color3.fromRGB(140,50,50)
+	end
+end)
+
+local NameBox = Instance.new("TextBox")
+NameBox.Size = UDim2.new(1,-20,0,35)
+NameBox.Position = UDim2.fromOffset(10,90)
+NameBox.PlaceholderText = "Username or Display Name"
+NameBox.ClearTextOnFocus = false
+NameBox.Text = ""
+NameBox.TextColor3 = Color3.new(1,1,1)
+NameBox.BackgroundColor3 = Color3.fromRGB(45,45,45)
+NameBox.ZIndex = 12
+NameBox.Parent = Content
+Instance.new("UICorner", NameBox)
+
+local TrailRadiusBox = Instance.new("TextBox")
+TrailRadiusBox.Size = UDim2.new(1,-20,0,35)
+TrailRadiusBox.Position = UDim2.fromOffset(10,135)
+TrailRadiusBox.PlaceholderText = "Trail Length (Distance)"
+TrailRadiusBox.Text = tostring(TrailLength)
+TrailRadiusBox.TextColor3 = Color3.new(1,1,1)
+TrailRadiusBox.BackgroundColor3 = Color3.fromRGB(45,45,45)
+TrailRadiusBox.ZIndex = 12
+TrailRadiusBox.Parent = Content
+Instance.new("UICorner", TrailRadiusBox)
+
+local TrailDurationBox = Instance.new("TextBox")
+TrailDurationBox.Size = UDim2.new(1,-20,0,35)
+TrailDurationBox.Position = UDim2.fromOffset(10,180)
+TrailDurationBox.PlaceholderText = "Trail Duration (seconds)"
+TrailDurationBox.Text = tostring(TrailLifetimeValue)
+TrailDurationBox.TextColor3 = Color3.new(1,1,1)
+TrailDurationBox.BackgroundColor3 = Color3.fromRGB(45,45,45)
+TrailDurationBox.ZIndex = 12
+TrailDurationBox.Parent = Content
+Instance.new("UICorner", TrailDurationBox)
+
+local ModeButton = createButton("Mode: SINGLE", 225)
+ModeButton.BackgroundColor3 = Color3.fromRGB(60,90,140)
+
+local RadiusLabel = Instance.new("TextLabel")
+RadiusLabel.Size = UDim2.new(1,0,0,20)
+RadiusLabel.Position = UDim2.fromOffset(0,270)
+RadiusLabel.Text = "Radius: "..GlideRadius
+RadiusLabel.TextColor3 = Color3.new(1,1,1)
+RadiusLabel.BackgroundTransparency = 1
+RadiusLabel.ZIndex = 12
+RadiusLabel.Parent = Content
+
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(1,0,0,20)
+SpeedLabel.Position = UDim2.fromOffset(0,310)
+SpeedLabel.Text = "Speed: "..GlideSpeed
+SpeedLabel.TextColor3 = Color3.new(1,1,1)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.ZIndex = 12
+SpeedLabel.Parent = Content
+
+local function createSliderButtons(posY)
+	local minus = Instance.new("TextButton")
+	minus.Size = UDim2.fromOffset(60,28)
+	minus.Position = UDim2.fromOffset(60,posY)
+	minus.Text = "−"
+	minus.ZIndex = 12
+	minus.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	minus.TextColor3 = Color3.fromRGB(255,255,255)
+	minus.Parent = Content
+	Instance.new("UICorner", minus).CornerRadius = UDim.new(0,12)
+
+	local plus = Instance.new("TextButton")
+	plus.Size = UDim2.fromOffset(60,28)
+	plus.Position = UDim2.fromOffset(160,posY)
+	plus.Text = "+"
+	plus.ZIndex = 12
+	plus.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	plus.TextColor3 = Color3.fromRGB(255,255,255)
+	plus.Parent = Content
+	Instance.new("UICorner", plus).CornerRadius = UDim.new(0,12)
+
+	return minus, plus
+end
+
+local RadiusMinus, RadiusPlus = createSliderButtons(290)
+local SpeedMinus, SpeedPlus = createSliderButtons(330)
+
+-- DRAGGING
+local dragging, dragInput, dragStart, startPos
+Frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = Frame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then dragging = false end
+		end)
+	end
+end)
+Frame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+	Minimized = not Minimized
+	Content.Visible = not Minimized
+	Frame.Size = Minimized and UDim2.fromOffset(280,30) or UDim2.fromOffset(280,460)
+end)
+
+Toggle.MouseButton1Click:Connect(function()
+	Enabled = not Enabled
+	Toggle.Text = Enabled and "Glide: ON" or "Glide: OFF"
+	Toggle.BackgroundColor3 = Enabled and Color3.fromRGB(60,140,60) or Color3.fromRGB(140,50,50)
+end)
+
+ModeButton.MouseButton1Click:Connect(function()
+	AvoidAll = not AvoidAll
+	ModeButton.Text = AvoidAll and "Mode: ALL" or "Mode: SINGLE"
+end)
+
+RadiusMinus.MouseButton1Click:Connect(function()
+	GlideRadius = math.max(1, GlideRadius-1); RadiusLabel.Text = "Radius: "..GlideRadius
+end)
+RadiusPlus.MouseButton1Click:Connect(function()
+	GlideRadius += 1; RadiusLabel.Text = "Radius: "..GlideRadius
+end)
+SpeedMinus.MouseButton1Click:Connect(function()
+	GlideSpeed = math.max(1,GlideSpeed-10); SpeedLabel.Text = "Speed: "..GlideSpeed
+end)
+SpeedPlus.MouseButton1Click:Connect(function()
+	GlideSpeed += 10; SpeedLabel.Text = "Speed: "..GlideSpeed
+end)
+
+local function matchesPlayer(p)
+	local txt = NameBox.Text or ""
+	txt = txt:lower():gsub("%s","")
+	if AvoidAll then return true end
+	if txt == "" then return false end
+	local uname = p.Name:lower():gsub("%s","")
+	local dname = p.DisplayName:lower():gsub("%s","")
+	return uname == txt or dname == txt or uname:find(txt,1,true) or dname:find(txt,1,true)
+end
+
+-- =========================
+-- INTEGRATED TRAIL LOGIC
+-- =========================
+local trail, attachBack
+local function setupTrail(character)
+	local root = character:WaitForChild("HumanoidRootPart")
+	for _, obj in ipairs(root:GetChildren()) do
+		if obj:IsA("Trail") and obj.Name == "PushTrail" then obj:Destroy() end
+	end
+	local attachFront = Instance.new("Attachment")
+	attachFront.Name = "TrailFront"; attachFront.Position = Vector3.new(0,0,0); attachFront.Parent = root
+	local ab = Instance.new("Attachment")
+	ab.Name = "TrailBack"; ab.Position = Vector3.new(0,0,-0.5); ab.Parent = root
+	local t = Instance.new("Trail")
+	t.Name = "PushTrail"; t.Attachment0 = attachFront; t.Attachment1 = ab
+	t.Lifetime = TrailLifetimeValue; t.Enabled = false; t.MinLength = 0
+	t.TextureMode = Enum.TextureMode.Stretch; t.FaceCamera = true
+	t.Transparency = NumberSequence.new(0,1)
+	t.WidthScale = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(1, 0.2)})
+	t.Parent = root
+	spawn(function()
+		while t and t.Parent do
+			for h=0,1,0.01 do t.Color = ColorSequence.new(Color3.fromHSV(h,1,1)); task.wait(0.02) end
+		end
+	end)
+	trail = t; attachBack = ab
+end
+
+setupTrail(LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait())
+LocalPlayer.CharacterAdded:Connect(setupTrail)
+
+local function updateTrailSettings()
+	local length = tonumber(TrailRadiusBox.Text)
+	local duration = tonumber(TrailDurationBox.Text)
+	if length then TrailLength = length end
+	if duration then TrailLifetimeValue = duration; if trail then trail.Lifetime = duration end end
+end
+TrailRadiusBox.FocusLost:Connect(updateTrailSettings)
+TrailDurationBox.FocusLost:Connect(updateTrailSettings)
+
+-- MAIN LOOP
+RunService.Heartbeat:Connect(function()
+	local char = LocalPlayer.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	local vel = root.AssemblyLinearVelocity
+	if TrailEnabled and vel.Magnitude > 0.5 and trail then
+		trail.Enabled = true
+		attachBack.Position = -vel.Unit * TrailLength
+	elseif trail then
+		trail.Enabled = false
+	end
+
+	if not Enabled then return end
+
+	local pushVector, count = Vector3.zero, 0
+	for _, other in ipairs(Players:GetPlayers()) do
+		if other == LocalPlayer or not other.Character then continue end
+		if not matchesPlayer(other) then continue end
+		local oRoot = other.Character:FindFirstChild("HumanoidRootPart")
+		if not oRoot then continue end
+		local offset = root.Position - oRoot.Position
+		if offset.Magnitude <= GlideRadius then
+			local dir = Vector3.new(offset.X,0,offset.Z)
+			if dir.Magnitude>0 then pushVector += dir.Unit; count +=1 end
+		end
+	end
+	if count>0 then
+		root.AssemblyLinearVelocity = (pushVector/count).Unit * GlideSpeed + Vector3.new(0,UPWARD_LIFT,0)
+	end
+end)
+
+-- =========================
+-- SERVICES
+-- =========================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- =========================
+-- HALO SETTINGS (VARIABLES)
+-- =========================
+local SEGMENTS = 20
+local RING_RADIUS = 1.2    
+local HALO_HEIGHT = 2.2    
+local IDLE_SPEED  = math.rad(180)
+local ALERT_SPEED = math.rad(1600)
+local TRIGGER_RADIUS = 22  
+local PULSE_DURATION = 0.18
+local PULSE_WIDTH = 0.45
+local BOB_AMPLITUDE = 0.15 
+local BOB_SPEED = 10        
+
+-- =========================
+-- GUI SETUP
+-- =========================
+pcall(function()
+	local old = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("HaloTool")
+	if old then old:Destroy() end
+end)
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "HaloTool"
+Gui.ResetOnSpawn = false
+Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- MAIN MENU FRAME
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.fromOffset(420, 130) 
+Frame.Position = UDim2.fromOffset(100, 150)
+Frame.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+Frame.BackgroundTransparency = 0.2
+Frame.BorderSizePixel = 0
+Frame.Active = true 
+Frame.Visible = true
+Frame.Parent = Gui
+Instance.new("UICorner", Frame)
+
+-- TOGGLE BUTTON (LEFT SIDE)
+local SideToggle = Instance.new("TextButton")
+SideToggle.Size = UDim2.fromOffset(60, 60)
+SideToggle.Position = UDim2.new(0, 10, 0.5, -30) -- Left side center
+SideToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SideToggle.Text = "HALO"
+SideToggle.Font = Enum.Font.SourceSansBold
+SideToggle.TextColor3 = Color3.new(1, 1, 1)
+SideToggle.Parent = Gui
+Instance.new("UICorner", SideToggle, UDim.new(1, 0)) -- Circle button
+
+SideToggle.MouseButton1Click:Connect(function()
+	Frame.Visible = not Frame.Visible
+end)
+
+-- DRAGGING FUNCTIONALITY
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+	local delta = input.Position - dragStart
+	Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+Frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = Frame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then dragging = false end
+		end)
+	end
+end)
+
+Frame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then update(input) end
+end)
+
+-- TITLE
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -20, 0, 30)
+Title.Position = UDim2.fromOffset(10, 5)
+Title.BackgroundTransparency = 1
+Title.Text = "Halo Tool - spins rapidly depending on the radius you input"
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 14 
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextWrapped = true
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Frame
+
+-- AUTHOR DESCRIPTION (FRIENDSHIPCREATE)
+local Author = Instance.new("TextLabel")
+Author.Size = UDim2.new(1, -20, 0, 20)
+Author.Position = UDim2.fromOffset(10, 30)
+Author.BackgroundTransparency = 1
+Author.Text = "Created by: Friendshipcreate"
+Author.Font = Enum.Font.SourceSansItalic
+Author.TextSize = 13
+Author.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan color to stand out
+Author.TextXAlignment = Enum.TextXAlignment.Left
+Author.Parent = Frame
+
+-- HELPER TO CREATE TEXTBOXES
+local function createBox(name, pos, default)
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.fromOffset(75, 30)
+	box.Position = pos
+	box.PlaceholderText = name
+	box.Text = tostring(default)
+	box.TextColor3 = Color3.new(1, 1, 1)
+	box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	box.Parent = Frame
+	Instance.new("UICorner", box)
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromOffset(75, 15)
+	label.Position = UDim2.new(0, pos.X.Offset, 0, pos.Y.Offset - 15)
+	label.Text = name
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.fromRGB(200, 200, 200)
+	label.TextSize = 10
+	label.Parent = Frame
+	
+	return box
+end
+
+-- CONTROLS
+local Toggle = Instance.new("TextButton")
+Toggle.Size = UDim2.fromOffset(80, 30)
+Toggle.Position = UDim2.fromOffset(10, 80)
+Toggle.Text = "Halo: ON"
+Toggle.BackgroundColor3 = Color3.fromRGB(60, 140, 60)
+Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+Toggle.Parent = Frame
+Instance.new("UICorner", Toggle)
+
+local Enabled = true
+Toggle.MouseButton1Click:Connect(function()
+	Enabled = not Enabled
+	Toggle.Text = Enabled and "Halo: ON" or "Halo: OFF"
+	Toggle.BackgroundColor3 = Enabled and Color3.fromRGB(60, 140, 60) or Color3.fromRGB(140, 50, 50)
+end)
+
+local ProxBox = createBox("Proximity", UDim2.fromOffset(100, 80), TRIGGER_RADIUS)
+local HeightBox = createBox("Height", UDim2.fromOffset(185, 80), HALO_HEIGHT)
+local SizeBox = createBox("Size", UDim2.fromOffset(270, 80), RING_RADIUS)
+
+ProxBox.FocusLost:Connect(function() TRIGGER_RADIUS = tonumber(ProxBox.Text) or TRIGGER_RADIUS end)
+HeightBox.FocusLost:Connect(function() HALO_HEIGHT = tonumber(HeightBox.Text) or HALO_HEIGHT end)
+SizeBox.FocusLost:Connect(function() RING_RADIUS = tonumber(SizeBox.Text) or RING_RADIUS end)
+
+-- =========================
+-- HALO ENGINE
+-- =========================
+local function createHalo(character)
+	local head = character:WaitForChild("Head")
+	for _, v in ipairs(workspace.Terrain:GetChildren()) do
+		if v.Name == "HaloFolder" then v:Destroy() end
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "HaloFolder"
+	folder.Parent = workspace.Terrain
+	local segments = {}
+	local angle = 0
+	local currentSpeed = IDLE_SPEED
+	local pulseTime = 0
+	local wasAlert = false
+
+	for i = 1, SEGMENTS do
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Parent, a1.Parent = folder, folder
+		local trail = Instance.new("Trail")
+		trail.Attachment0, trail.Attachment1 = a0, a1
+		trail.Lifetime, trail.FaceCamera, trail.Enabled = 0.12, true, true
+		trail.Parent = folder
+		table.insert(segments, {a0 = a0, a1 = a1, trail = trail, offset = (i / SEGMENTS) * math.pi * 2})
+	end
+
+	local startTime = tick()
+	RunService.Heartbeat:Connect(function(dt)
+		if not Enabled then
+			for _, seg in ipairs(segments) do seg.trail.Enabled = false end
+			return
+		else
+			for _, seg in ipairs(segments) do seg.trail.Enabled = true end
+		end
+		if not character.Parent then return end
+
+		local alert = false
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				if (plr.Character.HumanoidRootPart.Position - head.Position).Magnitude 
